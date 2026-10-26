@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="flex flex-wrap items-center justify-between gap-5 mb-7">
+  <div><p class="eyebrow text-emerald-400 mb-2">The technology talent landscape</p><h1 class="text-2xl md:text-[29px] font-semibold tracking-tight">Job market intelligence</h1><p class="muted text-xs mt-2">Understand what’s in demand. Make your next move with confidence.</p></div>
+  <div class="flex flex-col items-end gap-2">
+    <button type="button" hx-post="/api/v1/scrape/trigger" hx-target="#scrape-feedback" hx-disabled-elt="this" hx-swap="innerHTML" class="rounded-lg bg-emerald-400 hover:bg-emerald-300 transition-colors text-slate-950 font-semibold text-xs px-4 py-2.5 flex items-center gap-2"><span class="idle-icon" aria-hidden="true">↻</span><span class="htmx-indicator animate-spin" aria-hidden="true">◌</span>Run Scraper Now</button>
+    {% if token_required %}<label class="text-[10px] muted">Scraper access token <input id="scrape-token" type="password" autocomplete="off" class="field mt-1" aria-label="Scraper access token"></label>{% endif %}
+  </div>
+</section>
+<div id="scrape-feedback" role="status" aria-live="polite" class="text-xs text-emerald-300 mb-3"></div>
+<div id="request-error" role="alert" class="hidden text-xs text-amber-200 border border-amber-500/30 bg-amber-400/5 rounded-lg p-3 mb-4"></div>
+<form id="filters" class="panel p-4 mb-6 grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-[110px_1.2fr_130px_1fr_1.5fr] gap-3"
+  hx-get="/partials/dashboard" hx-target="#dashboard-content" hx-swap="innerHTML" hx-trigger="change, input changed delay:450ms from:input, every 60s" hx-sync="this:replace" hx-indicator="#filter-loading">
+  <label class="eyebrow">Time range<select name="days" class="field mt-2">{% for days in [7,14,30,90] %}<option value="{{ days }}" {% if filters.days == days %}selected{% endif %}>Last {{ days }} days</option>{% endfor %}</select></label>
+  <label class="eyebrow">Role category<select name="role" class="field mt-2"><option value="">All roles</option>{% for role in roles %}<option {% if filters.role == role %}selected{% endif %}>{{ role }}</option>{% endfor %}</select></label>
+  <label class="eyebrow">Arrangement<select name="work_arrangement" class="field mt-2"><option value="">All arrangements</option>{% for value in ['Remote','Hybrid','On-site','Unspecified'] %}<option {% if filters.work_arrangement == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
+  <label class="eyebrow">Skill tag<input name="skill" class="field mt-2" placeholder="e.g. python" value="{{ filters.skill or '' }}" autocomplete="off"></label>
+  <label class="eyebrow col-span-2 md:col-span-1">Search openings<input name="search" class="field mt-2" placeholder="Search title or company…" value="{{ filters.search or '' }}" autocomplete="off"></label>
+</form>
+<div class="h-4 -mt-4 mb-2"><span id="filter-loading" class="htmx-indicator text-[10px] text-emerald-300">Refreshing market data…</span></div>
+<div id="dashboard-content" aria-live="polite">{% include 'partials/dashboard_content.html' %}</div>
+{% endblock %}

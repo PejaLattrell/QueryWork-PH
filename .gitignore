@@ -1,0 +1,38 @@
+# Local environment and secrets (keep the setup template)
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+.local/
+
+# Python caches and generated output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+build/
+dist/
+*.egg-info/
+
+# Node dependencies and logs
+node_modules/
+*.log
+
+# Local service state
+.n8n/
+**/supabase/.temp/
+**/supabase/.branches/
+
+# Refreshed feed snapshots
+research/*-current.json
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+Desktop.ini

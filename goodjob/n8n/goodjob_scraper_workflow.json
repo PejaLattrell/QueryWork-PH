@@ -1,0 +1,528 @@
+{
+  "name": "GoodJob — Job Market Ingestion",
+  "nodes": [
+    {
+      "id": "7f3f7309-06e3-59d3-ae87-eece7b036c83",
+      "name": "Every Six Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */6 * * *"
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "38fc0951-4c64-5ec9-acde-0caa8ca55986",
+      "name": "On Demand",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "goodjob-trigger",
+        "responseMode": "onReceived",
+        "options": {
+          "responseData": "{\"accepted\":true}"
+        }
+      },
+      "position": [
+        0,
+        240
+      ],
+      "webhookId": "4103767a-1fd9-5c42-9063-18dc5ac33e5d"
+    },
+    {
+      "id": "7d1fa8c8-1fee-59f0-961c-f9358eef53fb",
+      "name": "Prepare Run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const { randomUUID } = require('crypto'); return [{json: {id: randomUUID(), source: 'remotive+arbeitnow', status: 'running'}}];"
+      },
+      "position": [
+        240,
+        100
+      ]
+    },
+    {
+      "id": "c43b0a3e-bd8a-58a8-bbde-68009ed7d45c",
+      "name": "Start Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/scrape_runs?on_conflict=id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "GoodJob/1.0 (public job market analytics)"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          }
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "position": [
+        480,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "id": "f03e12c8-aa82-59cf-a8f8-6fb346ef49d8",
+      "name": "Fetch Remotive",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "https://remotive.com/api/remote-jobs?category=software-dev&limit=50",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "GoodJob/1.0 (public job market analytics)"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "position": [
+        720,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "id": "bacf6bd5-340d-562c-a36f-a8da5e57b6e4",
+      "name": "Fetch Arbeitnow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.arbeitnow.com/api/job-board-api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "GoodJob/1.0 (public job market analytics)"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "position": [
+        720,
+        240
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "id": "b630b8d6-0810-5185-9cff-82e86b61ff3b",
+      "name": "Merge Feeds",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 2
+      },
+      "position": [
+        960,
+        100
+      ]
+    },
+    {
+      "id": "320b5518-459f-5c95-918a-9c1e8f5ff7b1",
+      "name": "Normalize Jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const { createHash } = require('crypto');\nconst dictionary = {\n  python: 'python', java: 'java', javascript: 'javascript|ecmascript', typescript: 'typescript',\n  php: 'php', ruby: 'ruby', rust: 'rust', golang: 'golang|go language', scala: 'scala',\n  kotlin: 'kotlin', swift: 'swift', 'c++': 'c\\\\+\\\\+', 'c#': 'c#|c sharp',\n  react: 'react(?:\\\\.js)?', nextjs: 'next\\\\.?js', vue: 'vue(?:\\\\.js)?', angular: 'angular',\n  svelte: 'svelte', fastapi: 'fastapi', django: 'django', flask: 'flask', laravel: 'laravel',\n  nodejs: 'node\\\\.?js', express: 'express\\\\.?js', spring: 'spring boot', rails: 'rails',\n  postgresql: 'postgres(?:ql)?', supabase: 'supabase', mysql: 'mysql', mongodb: 'mongo(?:db)?',\n  docker: 'docker', kubernetes: 'kubernetes|k8s', aws: 'aws|amazon web services',\n  gcp: 'gcp|google cloud', azure: 'azure', kafka: 'kafka', airflow: 'airflow',\n  snowflake: 'snowflake', bigquery: 'bigquery', n8n: 'n8n', graphql: 'graphql', redis: 'redis',\n  pytorch: 'pytorch', tensorflow: 'tensorflow', 'scikit-learn': 'scikit[ -]learn',\n  spark: 'apache spark|pyspark', dbt: 'dbt', sql: 'sql', terraform: 'terraform',\n  ansible: 'ansible', linux: 'linux', prometheus: 'prometheus', grafana: 'grafana',\n  elasticsearch: 'elasticsearch', 'github actions': 'github actions', git: 'git',\n  langchain: 'langchain', pandas: 'pandas', numpy: 'numpy', tailwind: 'tailwind',\n  html: 'html5?', css: 'css3?', 'rest api': 'rest(?:ful)? api', databricks: 'databricks',\n};\nconst clean = value => String(value ?? '').replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi, ' ')\n  .replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&')\n  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;|&apos;/g, \"'\").replace(/&quot;/g, '\"')\n  .replace(/\\s+/g, ' ').trim();\nfunction skillsFrom(text) {\n  return Object.entries(dictionary).filter(([,pattern]) => new RegExp('(?:^|[^a-z0-9])(?:' + pattern + ')(?=$|[^a-z0-9])', 'i').test(text)).map(([key]) => key);\n}\nfunction classify(title) {\n  if (/data engineer|analytics engineer|data platform|etl|data architect/i.test(title)) return 'Data Engineer';\n  if (/machine learning|\\bml\\b|\\bai\\b|artificial intelligence|data scientist/i.test(title)) return 'AI/ML Engineer';\n  if (/devops|sre\\b|site reliability|cloud|infrastructure|platform engineer/i.test(title)) return 'DevOps/Cloud';\n  if (/full[ -]?stack/i.test(title)) return 'Fullstack Engineer';\n  if (/front[ -]?end|\\breact\\b|\\bvue\\b|\\bui engineer/i.test(title)) return 'Frontend Engineer';\n  if (/back[ -]?end|\\bapi\\b|python|java\\b|node\\.?js|php|software engineer/i.test(title)) return 'Backend Engineer';\n  return 'Other';\n}\nfunction seniority(title) {\n  if (/lead|principal|staff|head of|architect/i.test(title)) return 'Lead/Principal';\n  if (/senior|\\bsr\\.?\\b/i.test(title)) return 'Senior';\n  if (/junior|\\bjr\\.?\\b|intern|entry[ -]level|graduate/i.test(title)) return 'Intern/Junior';\n  return 'Mid-Level';\n}\nfunction parseSalary(raw, rates = {}) {\n  const text = clean(raw).toUpperCase();\n  const empty = { salary_min: null, salary_max: null, salary_currency: null, salary_annual_usd: null };\n  if (!text || /COMPETITIVE|UNDISCLOSED|NEGOTIABLE/.test(text)) return empty;\n  const currency = /\\b(USD|EUR|GBP|CAD|AUD|PHP|INR|SGD)\\b/.exec(text)?.[1]\n    ?? (/\\bCA?\\$/.test(text) ? 'CAD' : /\\bAU?\\$/.test(text) ? 'AUD' : /\\bSG?\\$/.test(text) ? 'SGD' : text.includes('€') ? 'EUR' : text.includes('£') ? 'GBP' : /US\\$|\\$/.test(text) ? 'USD' : null);\n  if (!currency) return empty;\n  const matches = [...text.matchAll(/\\d[\\d,]*(?:\\.\\d+)?\\s*K?/g)];\n  if (!matches.length || matches.length > 2) return empty;\n  let values = matches.map(m => Number(m[0].replace(/[,K\\s]/g, '')) * (/K/.test(m[0]) ? 1000 : 1));\n  if (values.length === 2 && /K/.test(matches[1][0]) && !/K/.test(matches[0][0]) && values[0] < 1000) values[0] *= 1000;\n  const lo = Math.min(...values), hi = Math.max(...values);\n  const factor = /HOUR|\\/HR|\\/H\\b/.test(text) ? 2080 : /MONTH|\\/MO\\b/.test(text) ? 12 : /WEEK|\\/WK\\b/.test(text) ? 52 : /DAY|\\/D\\b/.test(text) ? 260 : 1;\n  if (lo <= 0 || hi > 10000000 || (factor === 1 && hi < 1000 && !/YEAR|ANNUAL|\\/YR/.test(text))) return empty;\n  const rate = currency === 'USD' ? 1 : Number(rates[currency]);\n  const annual = rate > 0 ? Math.round(((lo + hi) / 2) * factor * rate * 100) / 100 : null;\n  return { salary_min: lo, salary_max: hi, salary_currency: currency, salary_annual_usd: annual && annual < 10000000000 ? annual : null };\n}\nfunction normalize(job, source, rates) {\n  const title = clean(job.title), company = clean(job.company_name), url = job.url;\n  const timestamp = String(job.publication_date ?? '');\n  const utcTimestamp = /(?:Z|[+-]\\d{2}:?\\d{2})$/i.test(timestamp) ? timestamp : timestamp + 'Z';\n  const date = source === 'arbeitnow' ? new Date(Number(job.created_at) * 1000) : new Date(utcTimestamp);\n  if (!title || !company || !(job.id ?? job.slug) || !/^https?:\\/\\//i.test(url ?? '') || !Number.isFinite(date.getTime()) || date > new Date()) return null;\n  const description = clean(job.description), location = clean(job.candidate_required_location ?? job.location);\n  const context = [title, description, ...(job.tags ?? [])].join(' ');\n  const arrangement = source === 'remotive' || job.remote === true ? 'Remote' : /hybrid/i.test(location + ' ' + title) ? 'Hybrid' : job.remote === false ? 'On-site' : 'Unspecified';\n  const countryMap = { 'united states': 'US', usa: 'US', germany: 'DE', 'united kingdom': 'GB', uk: 'GB', canada: 'CA', australia: 'AU', philippines: 'PH', singapore: 'SG', netherlands: 'NL' };\n  const country = countryMap[location.toLowerCase()] ?? countryMap[location.split(',').at(-1).trim().toLowerCase()] ?? null;\n  return {\n    external_id: String(job.id ?? job.slug),\n    fingerprint: createHash('sha256').update(company.toLowerCase() + '::' + title.toLowerCase() + '::' + source).digest('hex'),\n    title, normalized_role: classify(title), company_name: company,\n    company_logo_url: /^https?:\\/\\//i.test(job.company_logo ?? '') ? job.company_logo : null,\n    location_raw: location || null, country, work_arrangement: arrangement,\n    employment_type: clean(job.job_type || (job.job_types ?? []).join(', ')) || 'Unspecified',\n    seniority_level: seniority(title), ...parseSalary(job.salary, rates),\n    skills: skillsFrom(context), description_snippet: description.slice(0, 700), job_url: url,\n    source, posted_at: date.toISOString(), scraped_at: new Date().toISOString(), is_active: true,\n  };\n}\nconst rates = JSON.parse($env.FX_USD_RATES || '{}');\nconst jobs = new Map(), errors = [];\nlet found = 0, rejected = 0;\nfor (const [nodeName, source, field] of [['Fetch Remotive', 'remotive', 'jobs'], ['Fetch Arbeitnow', 'arbeitnow', 'data']]) {\n  const response = $(nodeName).first().json;\n  const body = response.body ?? response;\n  if (response.error || response.statusCode >= 400 || !Array.isArray(body[field])) {\n    errors.push(source + ': feed request failed or returned an invalid payload');\n    continue;\n  }\n  for (const raw of body[field]) {\n    found++;\n    const job = normalize(raw, source, rates);\n    if (job) jobs.set(job.fingerprint, job); else rejected++;\n  }\n}\nreturn [{ json: { jobs: [...jobs.values()], jobs_found: found, rejected, errors } }];\n"
+      },
+      "position": [
+        1200,
+        100
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "df6421ac-3614-53af-b02b-ab1850c69f00",
+      "name": "Build Batches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const jobs = $input.first().json.jobs; const batches = []; for (let i=0;i<jobs.length;i+=100) batches.push({json:{jobs:jobs.slice(i,i+100)}}); return batches.length ? batches : [{json:{jobs:[]}}];"
+      },
+      "position": [
+        1440,
+        100
+      ]
+    },
+    {
+      "id": "76ca6518-4c28-52f3-8d55-81f292c5ef34",
+      "name": "Batch Upsert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/job_postings?on_conflict=fingerprint",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "GoodJob/1.0 (public job market analytics)"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          }
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.jobs) }}"
+      },
+      "position": [
+        1680,
+        100
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "id": "fc8f8873-bed9-5133-9dad-0f409d588a42",
+      "name": "Summarize Run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const data = $('Normalize Jobs').first().json; const batches = $('Build Batches').all(); const errors = [...data.errors]; let stored=0; $input.all().forEach((item,i)=>{ if(item.json.error || item.json.statusCode >= 400 || !item.json.statusCode) errors.push('Batch '+(i+1)+' upsert failed'); else stored+=batches[i].json.jobs.length; }); return [{json:{status:errors.length?'failed':'completed',jobs_found:data.jobs_found,jobs_upserted:stored,error_message:errors.length?errors.join('; '):null,completed_at:new Date().toISOString()}}];"
+      },
+      "position": [
+        1920,
+        100
+      ]
+    },
+    {
+      "id": "df3a590b-0561-5ac2-8c32-b22ff8a86ab2",
+      "name": "Complete Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/scrape_runs?id=eq.{{ $('Prepare Run').first().json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "GoodJob/1.0 (public job market analytics)"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          }
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "position": [
+        2160,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3
+    },
+    {
+      "id": "904672a5-c5fc-5ff5-844c-c8347bf524a5",
+      "name": "Log Normalization Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/scrape_runs?id=eq.{{ $('Prepare Run').first().json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "GoodJob/1.0 (public job market analytics)"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          }
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({status:\"failed\",error_message:\"Normalization failed; inspect the n8n execution for details\",completed_at:$now.toISO()}) }}"
+      },
+      "position": [
+        1440,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3
+    }
+  ],
+  "connections": {
+    "Every Six Hours": {
+      "main": [
+        [
+          {
+            "node": "Prepare Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On Demand": {
+      "main": [
+        [
+          {
+            "node": "Prepare Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Run": {
+      "main": [
+        [
+          {
+            "node": "Start Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Run": {
+      "main": [
+        [
+          {
+            "node": "Fetch Remotive",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Arbeitnow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Remotive": {
+      "main": [
+        [
+          {
+            "node": "Merge Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Arbeitnow": {
+      "main": [
+        [
+          {
+            "node": "Merge Feeds",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Feeds": {
+      "main": [
+        [
+          {
+            "node": "Normalize Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Jobs": {
+      "main": [
+        [
+          {
+            "node": "Build Batches",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Normalization Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Batches": {
+      "main": [
+        [
+          {
+            "node": "Batch Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch Upsert": {
+      "main": [
+        [
+          {
+            "node": "Summarize Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Run": {
+      "main": [
+        [
+          {
+            "node": "Complete Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Manila",
+    "executionTimeout": 600
+  },
+  "pinData": {}
+}

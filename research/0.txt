@@ -1,0 +1,5 @@
+User-Agent: *
+Allow: /
+
+Host: https://www.brentfordfc.com
+Sitemap: https://www.brentfordfc.com/sitemap.xml

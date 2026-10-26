@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="GoodJob — a clearer view of the technology job market. Explore hiring momentum, skill demand, and salary benchmarks.">
+  <meta name="theme-color" content="#0b1120">
+  <title>GoodJob · Market intelligence</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%2334d399'/%3E%3Cpath d='m17 33 10 10 21-24' fill='none' stroke='%230b1120' stroke-width='7'/%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script defer src="https://unpkg.com/htmx.org@2.0.8/dist/htmx.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+  <script defer src="{{ url_for('static', path='/js/charts.js') }}?v=1.0.1"></script>
+  <style>
+    :root{color-scheme:dark;--surface:#111a2b;--border:#243047}html{scroll-behavior:smooth}body{background:#0b1120;color:#dce5f2;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:14px} .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px}.muted{color:#8b9bb3}.eyebrow{font-size:10px;letter-spacing:.16em;font-weight:600;text-transform:uppercase;color:#8091ab}.field{width:100%;background:#0d1525;border:1px solid #2a3750;border-radius:7px;padding:9px 11px;font-size:12px;color:#dce5f2;outline:none}.field:focus{border-color:#34d399;box-shadow:0 0 0 2px #34d39920}.tag{font-size:10px;background:#1b283e;border:1px solid #2a3851;border-radius:4px;padding:3px 6px;color:#a8bad6;display:inline-block}.htmx-indicator{display:none}.htmx-request .htmx-indicator,.htmx-request.htmx-indicator{display:inline-block}.htmx-request .idle-icon{display:none}button:disabled{cursor:not-allowed;opacity:.4}a:focus-visible,button:focus-visible{outline:2px solid #34d399;outline-offset:4px}.chart-wrap{position:relative;height:280px}.navlink{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:7px;color:#8c9db8;font-size:12px}.navlink:hover{background:#162238;color:#dce5f2}.navlink.active{background:#34d39912;color:#6ee7b7;border:1px solid #34d39920} .scrollbar::-webkit-scrollbar{height:6px}.scrollbar::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important}}
+  </style>
+</head>
+<body>
+  <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 bg-emerald-400 text-slate-950 p-3">Skip to dashboard</a>
+  <aside class="hidden xl:flex fixed inset-y-0 left-0 w-52 border-r border-slate-800 bg-[#0d1525] flex-col px-5 py-7">
+    <a href="/" class="flex items-center gap-2.5 text-xl font-bold tracking-tight"><span class="grid place-items-center w-8 h-8 bg-emerald-400 rounded-lg text-slate-950 text-xl">✓</span>GoodJob<span class="text-emerald-400">.</span></a>
+    <p class="eyebrow mt-11 mb-4 pl-3">Workspace</p>
+    <nav aria-label="Main navigation" class="space-y-2">
+      <a class="navlink active" href="#main"><span aria-hidden="true">▦</span> Market overview</a>
+      <a class="navlink" href="#skills"><span aria-hidden="true">⌘</span> Skill intelligence</a>
+      <a class="navlink" href="#job-explorer"><span aria-hidden="true">▤</span> Job explorer</a>
+      <a class="navlink" href="/docs" target="_blank" rel="noopener"><span aria-hidden="true">↗</span> API reference</a>
+    </nav>
+    <div class="mt-auto panel p-3.5"><div class="flex items-center gap-2 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>Your market, in focus</div><p class="muted text-[11px] mt-2 leading-relaxed">Public job feeds. One clearer picture of where tech is heading.</p></div>
+    <div class="mt-5 text-[10px] muted flex justify-between"><span>GOODJOB INTELLIGENCE</span><span>v1.0</span></div>
+  </aside>
+  <div class="xl:ml-52">
+    <header class="border-b border-slate-800/90 px-5 md:px-9 h-16 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3"><span class="xl:hidden font-bold text-lg text-emerald-300">GoodJob.</span><span class="hidden sm:inline text-xs muted">Workspace <span class="mx-3 text-slate-600">/</span> <span class="text-slate-200">Market overview</span></span></div>
+      <div class="flex items-center gap-2 text-[11px] muted"><span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Supabase connected <span class="mx-3 text-slate-700">|</span><span>UTC data</span></div>
+    </header>
+    <main id="main" class="max-w-[1720px] mx-auto p-5 md:p-9">{% block content %}{% endblock %}</main>
+    <footer class="px-5 md:px-9 py-6 border-t border-slate-800 text-[11px] muted flex flex-wrap gap-3 justify-between"><span>GoodJob · Follow the signals. Find your next move.</span><span>Public feeds: <a class="hover:text-emerald-300" href="https://remotive.com" target="_blank" rel="noopener">Remotive</a> &amp; <a class="hover:text-emerald-300" href="https://www.arbeitnow.com" target="_blank" rel="noopener">Arbeitnow</a></span></footer>
+  </div>
+</body>
+</html>

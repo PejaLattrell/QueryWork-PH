@@ -1,0 +1,7 @@
+<div class="flex flex-wrap justify-between gap-2 items-center mb-4 text-[11px] muted">
+  <div class="flex gap-2 items-center"><span class="h-1.5 w-1.5 rounded-full {{ 'bg-amber-400' if summary.seed_job_count else 'bg-emerald-400' }}"></span>{% if summary.seed_job_count %}Includes {{ summary.seed_job_count }} illustrative seed postings · not verified vacancies{% else %}Active public feed postings{% endif %}</div>
+  <div>Last scraped: <span class="text-slate-300" {% if summary.last_scrape_at %}title="{{ summary.last_scrape_at.isoformat() }}"{% endif %}>{{ summary.last_scrape_at|ago }}</span></div>
+</div>
+{% include 'partials/kpi_cards.html' %}
+{% include 'partials/charts_section.html' %}
+{% include 'partials/jobs_table.html' %}
