@@ -138,7 +138,7 @@ with seed(title,normalized_role,company_name,location_raw,country,work_arrangeme
  ('Junior AI Engineer','AI/ML Engineer','Sprout AI','Worldwide',null,'Remote','Intern/Junior',70000,95000,array['python','scikit-learn','fastapi'],10),
  ('Senior DevOps Engineer','DevOps/Cloud','Stratus Infra','United States','US','Remote','Senior',150000,190000,array['docker','kubernetes','terraform','aws'],2),
  ('Cloud Reliability Engineer','DevOps/Cloud','Willow Networks','Germany','DE','Hybrid','Mid-Level',100000,140000,array['gcp','terraform','prometheus','linux'],11),
- ('Platform Engineer','DevOps/Cloud','Granite Cloud','Worldwide',null,'Remote','Mid-Level',120000,160000,array['docker','kubernetes','github actions','n8n'],12),
+ ('Platform Engineer','DevOps/Cloud','Granite Cloud','Worldwide',null,'Remote','Mid-Level',120000,160000,array['docker','kubernetes','github actions','python'],12),
  ('Principal SRE','DevOps/Cloud','Lumen Systems','United States','US','Remote','Lead/Principal',190000,235000,array['aws','kubernetes','golang','prometheus'],13)
 )
 insert into public.job_postings(external_id,fingerprint,title,normalized_role,company_name,location_raw,country,work_arrangement,seniority_level,salary_min,salary_max,salary_annual_usd,skills,description_snippet,job_url,source,posted_at)

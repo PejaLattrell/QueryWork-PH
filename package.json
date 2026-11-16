@@ -1,1 +1,12 @@
-{"name":"goodjob","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.mjs","start":"node scripts/serve.mjs"},"engines":{"node":">=22"}}
+{
+  "name": "goodjob",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "cd goodjob && python -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
+    "test:python": "python -m pytest -c goodjob/pytest.ini goodjob/tests -q",
+    "test:charts": "node --test goodjob/tests/charts.test.cjs",
+    "test": "npm run test:python && npm run test:charts"
+  },
+  "engines": {"node": ">=22"}
+}

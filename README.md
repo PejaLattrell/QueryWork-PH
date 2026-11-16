@@ -1,145 +1,86 @@
-# QueryWork PH 📊🇵🇭
+﻿# QueryWork PH
 
-> **Automated labor market telemetry and analytics platform tracking job trends, skill demand, and compensation benchmarks across the Philippines.**
+A personal data engineering project for collecting job listings, preserving source data, and exploring hiring trends, skill demand, and advertised compensation. The goal is Philippine labor-market analysis; the current prototype does not establish nationwide coverage.
 
----
+## Current implementation
 
-## 📖 Overview
+The working application lives in [`goodjob/`](goodjob/README.md). It uses a pure Python ingestion package and a local FastAPI dashboard backed by Supabase PostgreSQL. Jinja2 renders HTML, HTMX refreshes filtered sections, and Chart.js draws the charts. The same Python collector can run from the command line or the dashboard's **Run Scraper Now** action.
 
-**QueryWork PH** is an end-to-end data engineering and analytics project designed to capture, standardize, and visualize the state of the Philippine job market.
+```mermaid
+flowchart LR
+    Feed[Job feed] --> Python[Python collector]
+    Python --> Raw[Local original responses and metadata]
+    Raw --> Normalize[Python normalization]
+    Normalize --> DB[Supabase job listings and run history]
+    DB --> App[Local FastAPI dashboard]
+```
 
-While job boards show individual listings, **QueryWork PH** aggregates nationwide employment data to answer macro-level career and hiring questions: *Which tech stacks and skills are growing fastest? How do compensation bands compare across NCR, Cebu, Davao, and remote roles? Which industries have the highest hiring velocity?*
+The current source adapters target Remotive's bounded software-development feed and Arbeitnow's first feed page. These are prototype inputs, not a complete Philippine vacancy census. Confirm each source's collection and reuse terms, request allowance, and geographic eligibility before running live collection. Illustrative seed rows are labeled in the dashboard and must not be treated as verified vacancies.
 
-To solve the classic conflict between heavy analytical processing (OLAP) and fast web application performance (OLTP), this project implements a **Medallion Lakehouse Architecture** in **Databricks** paired with a low-latency **Supabase (PostgreSQL) Serving Layer** and a **FastAPI** backend.
+The ingestion path saves original response bytes and metadata locally before parsing or normalizing them. Supabase contains the normalized listings and ingestion-run status used by the existing dashboard. This direct publication is the current prototype; it does not implement the Databricks lakehouse pipeline or an atomic Gold snapshot publisher.
 
----
+## Target architecture
 
-## 🏗️ System Architecture
+The [architecture document](docs/architecture.MD) describes the next stage: reuse Python collection, upload originals into a Databricks managed volume, load Bronze, standardize and link postings in Silver, build Gold data, then publish a validated snapshot to Supabase. The local dashboard reads the latest successful publication independently of Databricks compute availability.
 
-![QueryWork PH Architecture](docs/architecture.png)
+![Current Python ingestion and planned lakehouse architecture](docs/architecture.png)
 
-### Data Flow & Pipeline Stages
+- [Bronze ingestion plan](docs/BRONZE_INGESTION_PLAN.md): prove original-response upload and replay into Databricks.
+- [Python with GitHub Actions](docs/PYTHON_GITHUB_ACTIONS_INGESTION.md): a proposed execution environment, with billing and source-access gates before scheduling.
+- [Startup guide](docs/STARTUP.md): run the current application and Python collector.
 
-1. **Automated Ingestion (`n8n` & `BeautifulSoup`):**
-   - Scheduled workflows scrape and extract job postings from multiple Philippine job portals.
-   - Raw payloads (JSON/HTML) are ingested directly into the Databricks Lakehouse along with ingestion timestamps and source metadata.
+Databricks upload, Bronze/Silver/Gold processing, cloud execution, and automated schedules remain planned until implemented and verified. Source selection for Philippine market coverage remains open.
 
-2. **Databricks Lakehouse (Medallion Architecture):**
-   - **🥉 Bronze Layer (Raw):** Immutable landing tables storing raw scraped job listings (Schema-on-Read) to ensure full historical replayability.
-   - **🥈 Silver Layer (Cleaned & Normalized):** Executes deduplication, regex salary parsing, string standardization (normalizing Philippine cities, provinces, and regions), and skill entity extraction into clean, atomic relational tables.
-   - **🥇 Gold Layer (Dimensional Star Schema & Data Marts):** Reshapes clean Silver records into a **Star Schema** (`fact_job_postings`, `dim_location`, `dim_company`, `dim_skill`, `dim_date`) and pre-aggregated analytical **Data Marts** optimized for specific business metrics.
-
-3. **OLTP Serving Layer (`Supabase PostgreSQL`):**
-   - To eliminate distributed cluster cold-start delays and high query overhead for end users, finalized Gold Data Marts are batch-synced (Upserted) into **Supabase PostgreSQL**.
-   - Indexed Postgres tables serve as a high-concurrency, sub-50ms operational cache for the web application.
-
-4. **Application Backend & Dashboard (`FastAPI` + Frontend UI):**
-   - **FastAPI** exposes clean RESTful endpoints with query filtering, pagination, and caching.
-   - The interactive **Dashboard** consumes the FastAPI endpoints to render real-time regional heatmaps, skill demand rankings, and salary distribution charts.
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technologies Used |
-| :--- | :--- |
-| **Data Ingestion & Scraping** | Python, BeautifulSoup4, n8n (Workflow Automation) |
-| **Data Lakehouse & ETL (OLAP)** | Databricks, Apache Spark (PySpark), Spark SQL, Delta Lake |
-| **Serving Database (OLTP)** | Supabase (PostgreSQL) |
-| **Backend API** | FastAPI, Pydantic, SQLAlchemy / Psycopg2 |
-| **Frontend Dashboard** | React / Next.js, Tailwind CSS, Recharts / Chart.js |
-
----
-
-## ✨ Key Analytics & Features
-
-- **📍 Regional Demand Mapping:** Compare on-site, hybrid, and remote job volume across Metro Manila (NCR), CALABARZON, Central Visayas, Davao Region, and emerging provincial hubs.
-- **💻 In-Demand Skill Radar:** Track the most requested technical and domain skills across roles and seniority levels.
-- **💰 Compensation Benchmarks:** Analyze advertised minimum and maximum monthly salary bands across industries and experience tiers.
-- **📈 Hiring Velocity Trends:** Monitor daily and weekly posting volumes to spot expanding and contracting sectors.
-
----
-
-## 📂 Repository Structure
+## Repository structure
 
 ```text
-querywork-ph/
-├── docs/
-│   └── architecture.png       # System architecture diagram
-├── ingestion/
-│   ├── scrapers/              # BeautifulSoup scraping scripts
-│   └── n8n_workflows/         # Exported n8n automation JSON workflows
-├── databricks/
-│   ├── 01_bronze_ingestion/   # Raw payload landing notebooks
-│   ├── 02_silver_cleaning/    # Deduplication, regex parsing & normalization
-│   ├── 03_gold_modeling/      # Star schema & Data Mart aggregations
-│   └── 04_supabase_sync/      # Reverse ETL batch upsert to Supabase
-├── backend/
-│   ├── app/                   # FastAPI routes, models, and database connections
-│   └── requirements.txt
-├── frontend/                  # Dashboard web application
-└── README.md
+Jobless/
+├── goodjob/
+│   ├── app/                  # FastAPI routes, services, schemas, templates, charts
+│   ├── ingestion/            # Python collection, raw preservation, normalization, CLI
+│   ├── supabase/migrations/  # Current dashboard database schema and analytics SQL
+│   ├── tests/                # Offline unit checks and explicit live checks
+│   ├── requirements.txt
+│   ├── .env.example
+│   ├── Dockerfile            # Optional local container packaging
+│   ├── docker-compose.yml
+│   └── README.md
+├── docs/                     # Architecture, plans, diagrams, operating instructions
+├── database/schema.sql       # Earlier prototype schema; not the dashboard migration
+├── research/                 # Exploratory notes and saved feed examples
+└── AGENTS.md                 # Project budget and documentation rules
 ```
 
----
+The detailed [application guide](goodjob/README.md#code-structure-and-modularity) explains where each responsibility belongs. The `ingestion/` package shown above is inside `goodjob/`; planned Databricks notebooks are not presented as implemented repository directories.
 
-## 🚀 Getting Started
+## Run locally
 
-### Prerequisites
+Use Python 3.11 or later. In the existing Windows workspace:
 
-- Python 3.10+
-- Node.js 18+ (for the frontend dashboard)
-- Databricks Workspace (Community or Standard/Premium Edition)
-- Supabase Project (PostgreSQL credentials & connection string)
-- n8n Instance (Local Docker or Cloud)
-
-### 1. Clone the Repository
-
-**Bash**
-
-```bash
-git clone [https://github.com/YOUR-USERNAME/querywork-ph.git](https://github.com/YOUR-USERNAME/querywork-ph.git)
-cd querywork-ph
+```powershell
+cd C:\Devs\Jobless
+.\.venv\Scripts\python.exe -m pip install -r .\goodjob\requirements.txt
+# On first setup only, copy goodjob/.env.example to goodjob/.env and configure it.
+cd goodjob
+..\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### 2. Configure Environment Variables
+Open <http://127.0.0.1:8000/>. The [startup guide](docs/STARTUP.md) covers creating the Python environment and configuring credentials. A read key is sufficient for the dashboard; ingestion also requires a server-only write key. Python ingestion uses the same installed Python dependencies and needs no separate automation service.
 
-Create a .env file in the backend/ directory:
+## Zero recurring cost
 
-**Code snippet**
+The project must remain within verified free service allowances and local resources. The dashboard and local collection run only while the computer is awake and their processes are running. No automatic schedule is enabled by these setup steps.
 
-```dotenv
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_KEY=your_supabase_anon_or_service_key
-DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
-```
+Keep the Supabase organization on its Free plan and measure database and egress usage. Databricks work must use Free Edition rather than an expiring trial, and must tolerate compute quota shutdowns and restricted outbound access. Before adopting hosted scheduling, confirm repository visibility, account allowances, and that billable overage is blocked. See the constraints and verification steps in the architecture and execution plans.
 
-### 3. Run the FastAPI Backend
+## Intended analytics
 
-**Bash**
+- Regional demand comparisons require explicit Philippine location and eligibility rules.
+- Skill-demand charts use canonical technology tags extracted from the observed listings.
+- Compensation analysis must disclose salary sample size, original currency/pay period, and conversion assumptions. The current dashboard uses annual USD posting midpoints; monthly PHP regional benchmarks remain future work.
+- Posting-volume trends describe the collected sample and publication dates, not all employers or actual completed hires.
 
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
+## Author
 
-### 4. Run the Frontend Dashboard
+Peja Lattrell Escares — [portfolio](https://pejalattrell.online)
 
-**Bash**
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
----
-
-## 👤 Author
-
-Peja Lattrell Escares
-
-🌐 Portfolio: pejalattrell.online

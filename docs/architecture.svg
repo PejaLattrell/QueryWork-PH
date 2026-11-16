@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" role="img" aria-labelledby="title desc">
+<title id="title">QueryWork PH: Python ingestion architecture</title>
+<desc id="desc">Current local Python collector, durable response files, Supabase and FastAPI dashboard. Planned Databricks managed volume, Bronze, Silver, Gold and validated snapshot publication.</desc>
+<rect width="1600" height="1080" fill="white"/>
+<text x="60" y="42" fill="#177c70" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="600" text-anchor="start" dominant-baseline="central">QUERYWORK PH</text>
+<text x="60" y="90" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="36" font-weight="600" text-anchor="start" dominant-baseline="central">Python ingestion architecture</text>
+<text x="60" y="130" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="20" font-weight="400" text-anchor="start" dominant-baseline="central">Current local pipeline and planned lakehouse path</text>
+<rect x="40" y="170" width="1520" height="390" rx="22" fill="#f1f8f7" stroke="#b6d7d0" stroke-width="2"/>
+<text x="60" y="198" fill="#177c70" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="600" text-anchor="start" dominant-baseline="central">CURRENT IMPLEMENTATION</text>
+<rect x="60" y="236" width="260" height="132" rx="16" fill="#ffffff" stroke="#8295a5" stroke-width="2"/>
+<text x="190.0" y="268" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="middle" dominant-baseline="central">Job feeds</text>
+<text x="190.0" y="302" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Remotive + Arbeitnow</text>
+<text x="190.0" y="328" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Bounded API requests</text>
+<rect x="370" y="236" width="340" height="132" rx="16" fill="#e3f3ef" stroke="#258b7d" stroke-width="2"/>
+<text x="540.0" y="268" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="middle" dominant-baseline="central">Python ingestion</text>
+<text x="540.0" y="302" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">CLI or dashboard trigger</text>
+<text x="540.0" y="328" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Fetch / normalize / batch writes</text>
+<rect x="780" y="236" width="300" height="132" rx="16" fill="#ffffff" stroke="#8295a5" stroke-width="2"/>
+<text x="930.0" y="268" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="middle" dominant-baseline="central">Supabase Postgres</text>
+<text x="930.0" y="302" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">job_postings + scrape_runs</text>
+<text x="930.0" y="328" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Prototype serving tables</text>
+<rect x="1150" y="236" width="320" height="132" rx="16" fill="#ffffff" stroke="#8295a5" stroke-width="2"/>
+<text x="1310.0" y="268" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="middle" dominant-baseline="central">Local dashboard</text>
+<text x="1310.0" y="302" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">FastAPI + Jinja / HTMX</text>
+<text x="1310.0" y="328" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">JSON API + Chart.js</text>
+<polyline points="320,302 370,302" fill="none" stroke="#8295a5" stroke-width="2"/>
+<polygon points="370,302 360.0,307.0 360.0,297.0" fill="#8295a5"/>
+<polyline points="710,302 780,302" fill="none" stroke="#8295a5" stroke-width="2"/>
+<polygon points="780,302 770.0,307.0 770.0,297.0" fill="#8295a5"/>
+<polyline points="1080,302 1150,302" fill="none" stroke="#8295a5" stroke-width="2"/>
+<polygon points="1150,302 1140.0,307.0 1140.0,297.0" fill="#8295a5"/>
+<rect x="370" y="416" width="340" height="116" rx="16" fill="#ffffff" stroke="#258b7d" stroke-width="2"/>
+<text x="540.0" y="448" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="middle" dominant-baseline="central">Durable response files</text>
+<text x="540.0" y="482" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Original bytes + metadata + hash</text>
+<text x="540.0" y="508" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Replay from local landing</text>
+<polyline points="540,368 540,416" fill="none" stroke="#258b7d" stroke-width="2"/>
+<polygon points="540,416 535.0,406.0 545.0,406.0" fill="#258b7d"/>
+<text x="60" y="444" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start" dominant-baseline="central">Run on demand.</text>
+<text x="60" y="474" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start" dominant-baseline="central">No automatic schedule enabled.</text>
+<text x="780" y="444" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="600" text-anchor="start" dominant-baseline="central">Write key stays server-side.</text>
+<text x="780" y="474" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start" dominant-baseline="central">Dashboard reads use a separate key.</text>
+<text x="780" y="504" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start" dominant-baseline="central">Batch failures are recorded explicitly.</text>
+<rect x="40" y="610" width="1520" height="310" rx="22" fill="#f5f6fb" stroke="#c4cbe1" stroke-width="2"/>
+<text x="60" y="642" fill="#566aa5" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="600" text-anchor="start" dominant-baseline="central">PLANNED DATABRICKS PATH</text>
+<text x="60" y="678" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start" dominant-baseline="central">External upload, Bronze loading, transformations, and snapshot publication still require implementation and verification.</text>
+<rect x="60" y="732" width="220" height="136" rx="16" fill="#ffffff" stroke="#9ba9ce" stroke-width="2"/>
+<text x="170.0" y="764" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="middle" dominant-baseline="central">Managed volume</text>
+<text x="170.0" y="798" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Original batches</text>
+<text x="170.0" y="824" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Verified upload</text>
+<rect x="306" y="732" width="190" height="136" rx="16" fill="#ffffff" stroke="#9ba9ce" stroke-width="2"/>
+<text x="401.0" y="764" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="middle" dominant-baseline="central">Bronze</text>
+<text x="401.0" y="798" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Source identity</text>
+<text x="401.0" y="824" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Posting versions</text>
+<rect x="522" y="732" width="190" height="136" rx="16" fill="#ffffff" stroke="#9ba9ce" stroke-width="2"/>
+<text x="617.0" y="764" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="middle" dominant-baseline="central">Silver</text>
+<text x="617.0" y="798" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Standardized fields</text>
+<text x="617.0" y="824" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Strong-evidence links</text>
+<rect x="738" y="732" width="190" height="136" rx="16" fill="#ffffff" stroke="#9ba9ce" stroke-width="2"/>
+<text x="833.0" y="764" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="middle" dominant-baseline="central">Gold</text>
+<text x="833.0" y="798" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Curated listings</text>
+<text x="833.0" y="824" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Dashboard aggregates</text>
+<rect x="954" y="732" width="246" height="136" rx="16" fill="#ffffff" stroke="#9ba9ce" stroke-width="2"/>
+<text x="1077.0" y="764" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="middle" dominant-baseline="central">Batch publisher</text>
+<text x="1077.0" y="798" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Stage and validate</text>
+<text x="1077.0" y="824" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Publish one version</text>
+<rect x="1226" y="732" width="314" height="136" rx="16" fill="#ffffff" stroke="#9ba9ce" stroke-width="2"/>
+<text x="1383.0" y="764" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="middle" dominant-baseline="central">Supabase snapshot</text>
+<text x="1383.0" y="798" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Last successful publication</text>
+<text x="1383.0" y="824" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="middle" dominant-baseline="central">Read by the same dashboard</text>
+<polyline points="280,800 306,800" fill="none" stroke="#7e8fb9" stroke-width="2" stroke-dasharray="8 6"/>
+<polygon points="306,800 296.0,805.0 296.0,795.0" fill="#7e8fb9"/>
+<polyline points="496,800 522,800" fill="none" stroke="#7e8fb9" stroke-width="2" stroke-dasharray="8 6"/>
+<polygon points="522,800 512.0,805.0 512.0,795.0" fill="#7e8fb9"/>
+<polyline points="712,800 738,800" fill="none" stroke="#7e8fb9" stroke-width="2" stroke-dasharray="8 6"/>
+<polygon points="738,800 728.0,805.0 728.0,795.0" fill="#7e8fb9"/>
+<polyline points="928,800 954,800" fill="none" stroke="#7e8fb9" stroke-width="2" stroke-dasharray="8 6"/>
+<polygon points="954,800 944.0,805.0 944.0,795.0" fill="#7e8fb9"/>
+<polyline points="1200,800 1226,800" fill="none" stroke="#7e8fb9" stroke-width="2" stroke-dasharray="8 6"/>
+<polygon points="1226,800 1216.0,805.0 1216.0,795.0" fill="#7e8fb9"/>
+<polyline points="540,532 540,584 20,584 20,800 60,800" fill="none" stroke="#7e8fb9" stroke-width="2" stroke-dasharray="8 6"/>
+<polygon points="60,800 50.0,805.0 50.0,795.0" fill="#7e8fb9"/>
+<text x="60" y="968" fill="#173248" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start" dominant-baseline="central">Local availability</text>
+<text x="60" y="1000" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start" dominant-baseline="central">The collector and dashboard require this PC awake. Local schedules stop while it is off.</text>
+<text x="60" y="1030" fill="#536a7d" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start" dominant-baseline="central">Hosted schedules and processing remain subject to source permissions, verified free-tier limits, and a proven storage handoff.</text>
+</svg>

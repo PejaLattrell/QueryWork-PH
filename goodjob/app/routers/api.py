@@ -1,11 +1,12 @@
 import secrets
+from html import escape
 from typing import Annotated
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from app.models.schemas import Filters, JobsPage, JobsQuery, Summary, Trends, TriggerResponse
+from app.models.schemas import Filters, IngestionStatus, JobsPage, JobsQuery, Summary, Trends, TriggerResponse
 from app.services.analytics_service import AnalyticsService, get_analytics
 
 router = APIRouter(prefix='/api/v1')
@@ -41,8 +42,16 @@ async def trigger(request: Request):
     expected = request.app.state.settings.app_trigger_token
     if expected and not secrets.compare_digest(request.headers.get('x-scrape-token', ''), expected.get_secret_value()):
         raise HTTPException(401, 'A valid scraper access token is required')
-    result = await request.app.state.n8n.trigger()
+    result = await request.app.state.ingestion.trigger()
     code = 202 if result.status == 'accepted' else 503
     if request.headers.get('hx-request') == 'true':
-        return HTMLResponse(f'<span role="status">{result.message}</span>', status_code=code)
+        return HTMLResponse(f'<span role="status">{escape(result.message)}</span>', status_code=code)
     return JSONResponse(result.model_dump(mode='json'), status_code=code)
+
+
+@router.get('/scrape/status', response_model=IngestionStatus)
+async def ingestion_status(request: Request):
+    result = request.app.state.ingestion.status()
+    if request.headers.get('hx-request') == 'true':
+        return HTMLResponse(f'<span role="status">{escape(result.message)}</span>')
+    return result

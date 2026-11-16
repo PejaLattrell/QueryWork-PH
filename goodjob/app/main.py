@@ -10,21 +10,25 @@ from app.config import BASE_DIR, Settings, get_settings
 from app.database import Database, DatabaseUnavailable
 from app.routers import api, ui
 from app.services.analytics_service import AnalyticsService
-from app.services.n8n_service import N8NService
+from app.services.ingestion_service import IngestionService
 
 
-def create_app(settings: Settings | None = None, database: Database | None = None, n8n: N8NService | None = None):
+def create_app(settings: Settings | None = None, database: Database | None = None, ingestion: IngestionService | None = None):
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         configuration = settings or get_settings()
         application.state.settings = configuration
         application.state.database = database or Database(configuration)
         application.state.analytics = AnalyticsService(application.state.database)
-        application.state.n8n = n8n or N8NService(configuration)
+        application.state.ingestion = ingestion or IngestionService(configuration)
         logging.basicConfig(level=logging.INFO)
-        yield
-        await application.state.database.close()
-        await application.state.n8n.close()
+        try:
+            yield
+        finally:
+            try:
+                await application.state.ingestion.close()
+            finally:
+                await application.state.database.close()
 
     application = FastAPI(title='GoodJob', version='1.0.0', lifespan=lifespan)
     application.mount('/static', StaticFiles(directory=BASE_DIR / 'static'), name='static')

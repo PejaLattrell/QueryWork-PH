@@ -131,3 +131,12 @@ class TriggerResponse(BaseModel):
     status: Literal['accepted', 'not_configured']
     message: str
     triggered_at: datetime | None = None
+
+
+class IngestionStatus(BaseModel):
+    status: Literal['idle', 'running', 'completed', 'failed', 'not_configured']
+    run_id: str | None = None
+    jobs_found: int = 0
+    jobs_upserted: int = 0
+    rejected: int = 0
+    message: str

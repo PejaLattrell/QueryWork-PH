@@ -4,6 +4,8 @@ WORKDIR /srv/goodjob
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && useradd --create-home goodjob
 COPY --chown=goodjob:goodjob app ./app
+COPY --chown=goodjob:goodjob ingestion ./ingestion
+RUN mkdir -p /srv/goodjob/data/landing && chown -R goodjob:goodjob /srv/goodjob/data
 USER goodjob
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
