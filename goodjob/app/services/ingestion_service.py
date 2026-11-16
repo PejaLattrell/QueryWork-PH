@@ -9,6 +9,7 @@ from fastapi import HTTPException
 
 from app.config import Settings
 from app.models.schemas import IngestionStatus, TriggerResponse
+from ingestion import runner as ingestion_runner
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +18,14 @@ class IngestionService:
     def __init__(self, settings: Settings, runner=None):
         self.settings = settings
         self.runner = runner
-        if self.runner is None and settings.supabase_service_role_key:
-            from ingestion.runner import IngestionRunner
-
-            self.runner = IngestionRunner(
+        self._sources_selected = runner.sources_configured if runner is not None else ingestion_runner.sources_configured()
+        self._not_configured_message = (
+            'Collection is not configured: ingestion sources have not been selected.'
+            if not self._sources_selected else
+            'Collection is not configured. A server-only Supabase write credential is required.'
+        )
+        if self.runner is None and self._sources_selected and settings.supabase_service_role_key:
+            self.runner = ingestion_runner.IngestionRunner(
                 supabase_url=str(settings.supabase_url),
                 write_key=settings.supabase_service_role_key.get_secret_value(),
                 fx_rates=settings.fx_usd_rates,
@@ -29,15 +34,15 @@ class IngestionService:
         self.lock = asyncio.Lock()
         self._task: asyncio.Task | None = None
         self._last_trigger = float('-inf')
-        self._state = 'idle' if self.runner is not None else 'not_configured'
+        self._state = 'idle' if self.runner is not None and self._sources_selected else 'not_configured'
         self._last_result = None
         self._closed = False
 
     async def trigger(self) -> TriggerResponse:
-        if self.runner is None:
+        if self.runner is None or not self._sources_selected:
             return TriggerResponse(
                 status='not_configured',
-                message='Collection is not configured. Set the server-only SUPABASE_SERVICE_ROLE_KEY to collect jobs.',
+                message=self._not_configured_message,
             )
         async with self.lock:
             if self._closed:
@@ -68,6 +73,10 @@ class IngestionService:
             self._state = 'failed'
             logger.warning('Python collection interrupted during application shutdown')
             raise
+        except ingestion_runner.SourcesNotConfigured:
+            self._sources_selected = False
+            self._state = 'not_configured'
+            self._not_configured_message = 'Collection is not configured: ingestion sources have not been selected.'
         except Exception as exc:
             self._state = 'failed'
             logger.warning('Python collection stopped unexpectedly (%s)', type(exc).__name__)
@@ -82,7 +91,7 @@ class IngestionService:
             'running': 'Python collection is running.',
             'completed': f'Collection completed: {saved} listings saved.',
             'failed': f'Collection failed after saving {saved} listings. Review collection history before retrying.',
-            'not_configured': 'Collection is not configured. Dashboard reads remain available.',
+            'not_configured': self._not_configured_message,
         }
         return IngestionStatus(
             status=self._state,

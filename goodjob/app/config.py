@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     supabase_key: SecretStr
     supabase_service_role_key: SecretStr | None = None
     fx_usd_rates: dict[str, float] = Field(default_factory=dict)
-    ingestion_landing_dir: Path = BASE_DIR.parent / 'data' / 'landing'
+    ingestion_landing_dir: Path = BASE_DIR.parent / '.local' / 'ingestion'
     app_env: Literal['development', 'test', 'production'] = 'development'
     app_trigger_token: SecretStr | None = None
     scrape_cooldown_seconds: int = 300
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     @field_validator('supabase_service_role_key', 'app_trigger_token', mode='before')
     @classmethod
     def empty_optional(cls, value):
-        return None if value == '' else value
+        return None if isinstance(value, str) and not value.strip() else value
 
     @field_validator('fx_usd_rates')
     @classmethod

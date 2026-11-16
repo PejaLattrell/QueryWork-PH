@@ -27,6 +27,8 @@ JOB = dict(id='00000000-0000-0000-0000-000000000001', external_id='1', fingerpri
 
 
 class FakeRunner:
+    sources_configured = True
+
     def __init__(self, *, failed=False, crash=False):
         self.calls = 0
         self.closed = False
@@ -65,10 +67,10 @@ async def wait_for_collection(service):
     await asyncio.wait_for(asyncio.shield(service._task), timeout=2)
 
 
-def setup_client(*, unavailable=False, token=None, runner=None):
+def setup_client(*, unavailable=False, token=None, runner=None, write_key=None):
     calls = []
     settings = Settings(_env_file=None, supabase_url='https://test.supabase.co', supabase_key='sb_publishable_test',
-                        app_trigger_token=token, app_env='test')
+                        supabase_service_role_key=write_key, app_trigger_token=token, app_env='test')
 
     def database_handler(request):
         if unavailable:
@@ -126,12 +128,13 @@ def test_invalid_query_is_rejected(query):
         assert client.get('/api/v1/jobs?' + query).status_code == 422
 
 
-def test_missing_write_credential_is_honest_and_htmx_readable():
+def test_unselected_sources_are_honest_and_htmx_readable():
     client, _ = setup_client()
     with client:
         result = client.post('/api/v1/scrape/trigger')
         assert result.status_code == 503
         assert result.json()['status'] == 'not_configured'
+        assert 'sources have not been selected' in result.json()['message']
         result = client.post('/api/v1/scrape/trigger', headers={'HX-Request': 'true'})
         assert result.status_code == 503 and 'not configured' in result.text
         assert client.get('/api/v1/scrape/status').json()['status'] == 'not_configured'
@@ -197,7 +200,7 @@ def test_shutdown_cancels_collection_and_closes_runner():
 def test_concurrent_triggers_start_only_one_collection():
     async def scenario():
         settings = Settings(_env_file=None, supabase_url='https://test.supabase.co',
-                            supabase_key='sb_publishable_test', app_env='test')
+                            supabase_key='sb_publishable_test', supabase_service_role_key=None, app_env='test')
         runner = BlockingRunner()
         service = IngestionService(settings, runner=runner)
         try:
@@ -222,3 +225,78 @@ def test_database_outage_is_visible():
 def test_production_requires_access_token():
     with pytest.raises(ValueError, match='APP_TRIGGER_TOKEN'):
         Settings(_env_file=None, supabase_url='https://test.supabase.co', supabase_key='x', app_env='production')
+
+
+def test_ingestion_settings_anchor_local_storage_and_reject_invalid_rates():
+    from app.config import BASE_DIR
+
+    options = dict(_env_file=None, supabase_url='https://test.supabase.co', supabase_key='read-key',
+                   supabase_service_role_key='', ingestion_landing_dir='.local/ingestion', app_env='test')
+    settings = Settings(**options, fx_usd_rates={'php': 0.017})
+    assert settings.supabase_service_role_key is None
+    assert settings.ingestion_landing_dir == BASE_DIR.parent / '.local' / 'ingestion'
+    assert settings.fx_usd_rates == {'PHP': 0.017}
+    for rate in [0, -1, float('inf'), float('nan')]:
+        with pytest.raises(ValueError, match='positive, finite'):
+            Settings(**options, fx_usd_rates={'PHP': rate})
+
+
+def test_configured_service_passes_settings_to_python_runner(monkeypatch, tmp_path):
+    from ingestion import runner as runner_module
+
+    captured = {}
+    runner = FakeRunner()
+
+    def factory(**kwargs):
+        captured.update(kwargs)
+        return runner
+
+    monkeypatch.setattr(runner_module, 'IngestionRunner', factory)
+    monkeypatch.setattr(runner_module, 'sources_configured', lambda: True)
+    settings = Settings(_env_file=None, supabase_url='https://test.supabase.co', supabase_key='read-key',
+                        supabase_service_role_key='server-write-key', fx_usd_rates={'PHP': 0.017},
+                        ingestion_landing_dir=tmp_path, app_env='test')
+    service = IngestionService(settings)
+    assert captured == dict(supabase_url='https://test.supabase.co/', write_key='server-write-key',
+                            fx_rates={'PHP': 0.017}, landing_dir=tmp_path)
+    assert service.status().status == 'idle'
+    asyncio.run(service.close())
+    assert runner.closed
+
+
+def test_write_credential_cannot_start_ingestion_without_sources(monkeypatch):
+    from ingestion import runner as runner_module
+
+    def unexpected_runner(**kwargs):
+        pytest.fail('An unconfigured source registry must not construct a writer runner')
+
+    monkeypatch.setattr(runner_module, 'IngestionRunner', unexpected_runner)
+    monkeypatch.setattr(runner_module, 'sources_configured', lambda: False)
+    client, calls = setup_client(write_key='server-write-key')
+    with client:
+        result = client.post('/api/v1/scrape/trigger')
+        assert result.status_code == 503 and result.json()['status'] == 'not_configured'
+        assert 'sources have not been selected' in result.json()['message']
+        status = client.get('/api/v1/scrape/status')
+        assert status.json()['status'] == 'not_configured'
+        assert 'sources have not been selected' in status.json()['message']
+        html = client.get('/api/v1/scrape/status', headers={'HX-Request': 'true'})
+        assert 'sources have not been selected' in html.text
+        service = client.app.state.ingestion
+        assert service.runner is None and service._task is None
+        assert calls == []
+        assert client.get('/api/v1/jobs').status_code == 200
+        assert len(calls) == 1 and calls[0][0].endswith('/rpc/get_jobs')
+
+
+def test_selected_source_still_requires_a_write_credential(monkeypatch):
+    from ingestion import runner as runner_module
+
+    monkeypatch.setattr(runner_module, 'sources_configured', lambda: True)
+    client, calls = setup_client()
+    with client:
+        result = client.post('/api/v1/scrape/trigger')
+        assert result.status_code == 503 and result.json()['status'] == 'not_configured'
+        assert 'write credential is required' in result.json()['message']
+        assert client.app.state.ingestion._task is None
+        assert calls == []

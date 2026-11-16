@@ -4,30 +4,29 @@ A personal data engineering project for collecting job listings, preserving sour
 
 ## Current implementation
 
-The working application lives in [`goodjob/`](goodjob/README.md). It uses a pure Python ingestion package and a local FastAPI dashboard backed by Supabase PostgreSQL. Jinja2 renders HTML, HTMX refreshes filtered sections, and Chart.js draws the charts. The same Python collector can run from the command line or the dashboard's **Run Scraper Now** action.
+The working application lives in [`goodjob/`](goodjob/README.md). It contains a pure Python ingestion framework and a local FastAPI dashboard backed by Supabase PostgreSQL. Jinja2 renders HTML, HTMX refreshes filtered sections, and Chart.js draws the charts. **No ingestion source has been selected. The source registry is empty, and live collection and replay are disabled.**
 
 ```mermaid
 flowchart LR
-    Feed[Job feed] --> Python[Python collector]
-    Python --> Raw[Local original responses and metadata]
-    Raw --> Normalize[Python normalization]
-    Normalize --> DB[Supabase job listings and run history]
-    DB --> App[Local FastAPI dashboard]
+    CLI[Python CLI] --> Gate[Empty source registry]
+    Trigger[Dashboard collection action] --> Gate
+    Gate --> Status[not_configured]
+    DB[Supabase sample or existing data] --> App[Local FastAPI dashboard]
 ```
 
-The current source adapters target Remotive's bounded software-development feed and Arbeitnow's first feed page. These are prototype inputs, not a complete Philippine vacancy census. Confirm each source's collection and reuse terms, request allowance, and geographic eligibility before running live collection. Illustrative seed rows are labeled in the dashboard and must not be treated as verified vacancies.
+The CLI and dashboard collection action report `not_configured` before making any ingestion HTTP request or database write, even when a write credential exists. Selecting and implementing a source adapter is a separate future decision. Illustrative seed rows remain available to demonstrate the dashboard and are not verified vacancies or a selected data source.
 
-The ingestion path saves original response bytes and metadata locally before parsing or normalizing them. Supabase contains the normalized listings and ingestion-run status used by the existing dashboard. This direct publication is the current prototype; it does not implement the Databricks lakehouse pipeline or an atomic Gold snapshot publisher.
+The framework includes original-byte preservation, metadata/checksums, retries, normalization helpers, replay, batched publication, and run reporting. These mechanisms are tested using isolated fixtures; they do not imply that a live source is available. The dashboard can read sample or existing records independently. Databricks lakehouse processing and atomic Gold publication are not implemented.
 
 ## Target architecture
 
-The [architecture document](docs/architecture.MD) describes the next stage: reuse Python collection, upload originals into a Databricks managed volume, load Bronze, standardize and link postings in Silver, build Gold data, then publish a validated snapshot to Supabase. The local dashboard reads the latest successful publication independently of Databricks compute availability.
+The [architecture document](docs/architecture.MD) starts with source selection and an explicitly implemented adapter. After that gate, the planned path is Python collection, verified upload to a Databricks managed volume, Bronze loading, Silver standardization, Gold modeling, and a validated Supabase snapshot. The future dashboard publication will remain separate from Databricks compute availability.
 
 ![Current Python ingestion and planned lakehouse architecture](docs/architecture.png)
 
 - [Bronze ingestion plan](docs/BRONZE_INGESTION_PLAN.md): prove original-response upload and replay into Databricks.
 - [Python with GitHub Actions](docs/PYTHON_GITHUB_ACTIONS_INGESTION.md): a proposed execution environment, with billing and source-access gates before scheduling.
-- [Startup guide](docs/STARTUP.md): run the current application and Python collector.
+- [Startup guide](docs/STARTUP.md): run the dashboard and inspect the source-disabled Python CLI.
 
 Databricks upload, Bronze/Silver/Gold processing, cloud execution, and automated schedules remain planned until implemented and verified. Source selection for Philippine market coverage remains open.
 
@@ -37,7 +36,7 @@ Databricks upload, Bronze/Silver/Gold processing, cloud execution, and automated
 Jobless/
 ├── goodjob/
 │   ├── app/                  # FastAPI routes, services, schemas, templates, charts
-│   ├── ingestion/            # Python collection, raw preservation, normalization, CLI
+│   ├── ingestion/            # Source-disabled Python ingestion framework and CLI
 │   ├── supabase/migrations/  # Current dashboard database schema and analytics SQL
 │   ├── tests/                # Offline unit checks and explicit live checks
 │   ├── requirements.txt
@@ -47,7 +46,6 @@ Jobless/
 │   └── README.md
 ├── docs/                     # Architecture, plans, diagrams, operating instructions
 ├── database/schema.sql       # Earlier prototype schema; not the dashboard migration
-├── research/                 # Exploratory notes and saved feed examples
 └── AGENTS.md                 # Project budget and documentation rules
 ```
 
@@ -65,7 +63,7 @@ cd goodjob
 ..\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Open <http://127.0.0.1:8000/>. The [startup guide](docs/STARTUP.md) covers creating the Python environment and configuring credentials. A read key is sufficient for the dashboard; ingestion also requires a server-only write key. Python ingestion uses the same installed Python dependencies and needs no separate automation service.
+Open <http://127.0.0.1:8000/>. The [startup guide](docs/STARTUP.md) covers creating the Python environment and configuring credentials. A read key is sufficient for the dashboard. A write key alone cannot enable ingestion: no sources are selected or implemented. The Python framework uses the existing dependencies and needs no separate automation service.
 
 ## Zero recurring cost
 

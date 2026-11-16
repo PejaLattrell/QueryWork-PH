@@ -1,14 +1,14 @@
 # Plan: collect job data and save it in Bronze
 
-This is the planned first milestone for the [target architecture](architecture.MD). Databricks ingestion still needs implementation and verification. Data sources are undecided.
+This is a future milestone for the [target architecture](architecture.MD). No job sites or other sources have been selected. The Python framework in `goodjob/ingestion/` has an empty source registry: collection and replay stop before ingestion HTTP or writes, even with a write key. Preservation, normalization, retry, and publication mechanisms are tested only with isolated fixtures. Source selection, adapter implementation, Databricks upload, and Bronze loading remain work to do. This plan recommends no provider or endpoint.
 
 ## Goal
 
-Run a Python program that collects real job data and saves the original response in Databricks. Keep enough information to tell where it came from, when it was collected, and whether the collection finished successfully.
+First explicitly select a permitted input and implement/test its adapter. Then reuse the Python framework to preserve original responses in Databricks, retaining provenance, retrieval time, and separate collection/upload/Bronze-load outcomes. Those are distinct milestones, and none establishes Philippine coverage without source validation.
 
 Bronze means the collection of originals. Cleaning salaries, deciding which jobs match the Philippines, removing repeated jobs, and calculating charts come later.
 
-The first working path will be:
+The first verified Databricks path will be:
 
 Authorized source → Python collector → original response in a managed volume → Bronze.
 
@@ -47,7 +47,9 @@ Record the filters and limits used by each collection. Preserve the original res
 
 Keep original batches in the managed landing volume for replay. For Bronze postings, use source, stable source job ID (or canonical listing URL), and a stable content hash as the version key. Repeated observations belong in collection history and do not require another posting version. Preserve changed versions.
 
-## 4. Write the collector and saving step
+## 4. Reuse the collector and implement the Databricks saving step
+
+The CLI is `python -m ingestion` from `goodjob/`, with `--help` available. It currently reports that no sources are selected and exits 2 before settings, ingestion HTTP, landing output, or database writes. Replay is guarded in the same way. After an adapter is explicitly chosen and implemented, the prepared archive contract uses `.local/ingestion/<run-uuid>` by default; fixture tests cover preservation, checksums, and replay without source refetching. Extend that framework contract with a volume uploader and loader while keeping normalization after preservation. Local archives or Supabase writes alone would not satisfy this Databricks milestone.
 
 - Give each collection a unique label before requesting data.
 - Set a maximum waiting time for a website response.
@@ -93,13 +95,14 @@ Provide a short guide showing how to run a collection, inspect its saved origina
 
 ## Work to add to this project
 
-- The Python collector and a protected-settings example.
+- Explicit source selection, collection/reuse and request-limit validation, and a fixture-tested adapter; no source is selected by this plan.
+- A Databricks uploader for the Python framework's original bytes and metadata, with protected workspace settings.
 - A Databricks setup file that creates the two tables without replacing existing data.
 - A Databricks program that saves original responses and collection history.
 - Checks for preservation, retries, and failure recovery.
 - Setup and operating instructions, including scheduling and the first successful collection evidence.
 
-Implementation can stop when a real response is stored and readable in Bronze, repeat attempts behave correctly, failures are visible, and the chosen scheduled route has succeeded. Silver, Gold, and dashboard updates follow in later work. n8n is not required for this plan.
+This milestone can stop when a real response is stored and readable in Bronze, repeat attempts behave correctly, failures are visible, and the chosen scheduled route has succeeded. Silver, Gold, and the future snapshot publisher follow in later work. No Databricks or hosted schedule has been enabled by the local Python implementation.
 
 ## References
 

@@ -1,12 +1,9 @@
 create table public.job_sources (
-  id text primary key check (id in ('remotive','jobicy')),
+  id text primary key,
   name text not null, website text not null,
   last_started_at timestamptz, last_success_at timestamptz,
   lease_until timestamptz
 );
-insert into public.job_sources(id,name,website) values
- ('remotive','Remotive','https://remotive.com'),('jobicy','Jobicy','https://jobicy.com');
-
 create table public.collection_runs (
   id uuid primary key default gen_random_uuid(),
   source text not null references public.job_sources(id),

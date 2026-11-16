@@ -7,9 +7,9 @@ services:
       - "127.0.0.1:8000:8000"
     env_file: .env
     environment:
-      INGESTION_LANDING_DIR: /srv/goodjob/data/landing
+      INGESTION_LANDING_DIR: /srv/goodjob/.local/ingestion
     volumes:
-      - ingestion_data:/srv/goodjob/data
+      - ingestion_data:/srv/goodjob/.local
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
       interval: 30s

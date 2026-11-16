@@ -1,11 +1,16 @@
-"""Pure transformations from bounded public feed records to serving rows."""
+"""Validate source-neutral canonical job records and prepare serving rows.
+
+Future explicitly selected adapters must map their records into this contract.
+This module contains no production source adapter or endpoint.
+"""
 
 import hashlib
 import html
 import math
 import re
 from datetime import datetime, timezone
-from urllib.parse import urlsplit
+
+from pydantic import HttpUrl, TypeAdapter, ValidationError
 
 
 SKILLS = {
@@ -30,9 +35,7 @@ SKILLS = {
 }
 _SKILL_PATTERNS = [(key, re.compile(r'(?:^|[^a-z0-9])(?:' + value + r')(?=$|[^a-z0-9])', re.I))
                    for key, value in SKILLS.items()]
-_COUNTRIES = {'united states': 'US', 'usa': 'US', 'germany': 'DE', 'united kingdom': 'GB',
-              'uk': 'GB', 'canada': 'CA', 'australia': 'AU', 'philippines': 'PH',
-              'singapore': 'SG', 'netherlands': 'NL'}
+_HTTP_URL = TypeAdapter(HttpUrl)
 
 
 def clean(value) -> str:
@@ -100,51 +103,53 @@ def parse_salary(raw, rates: dict[str, float] | None = None) -> dict:
     return dict(salary_min=lo, salary_max=hi, salary_currency=currency, salary_annual_usd=annual)
 
 
-def http_url(value) -> bool:
+def http_url(value) -> str | None:
+    """Return the same canonical HTTP URL shape accepted by the serving models."""
     if not isinstance(value, str):
-        return False
+        return None
     try:
-        parsed = urlsplit(value)
-        return parsed.scheme.lower() in ('http', 'https') and bool(parsed.hostname) and not parsed.username and not parsed.password
-    except ValueError:
-        return False
+        parsed = _HTTP_URL.validate_python(value)
+        if parsed.username is not None or parsed.password is not None:
+            return None
+        return str(parsed)
+    except ValidationError:
+        return None
 
 
 def normalize_job(job: dict, source: str, rates: dict | None = None, *, now: datetime | None = None) -> dict | None:
-    if not isinstance(job, dict):
+    if not isinstance(source, str) or not source.strip() or not isinstance(job, dict):
         return None
     title, company = clean(job.get('title')), clean(job.get('company_name'))
-    external_id = job.get('id') if job.get('id') is not None else job.get('slug')
+    job_url = http_url(job.get('job_url'))
+    external_id = job.get('external_id')
     now = now or datetime.now(timezone.utc)
     try:
-        if source == 'arbeitnow':
-            posted = datetime.fromtimestamp(float(job['created_at']), timezone.utc)
-        else:
-            posted = datetime.fromisoformat(str(job.get('publication_date', '')).replace('Z', '+00:00'))
-            if posted.tzinfo is None:
-                posted = posted.replace(tzinfo=timezone.utc)
+        posted = datetime.fromisoformat(str(job['posted_at']).replace('Z', '+00:00'))
+        if posted.tzinfo is None:
+            return None
         posted = posted.astimezone(timezone.utc)
     except (KeyError, ValueError, TypeError, OverflowError, OSError):
         return None
-    if not title or not company or external_id is None or str(external_id) == '' or not http_url(job.get('url')) or posted > now:
+    if (not title or not company or not isinstance(external_id, (str, int)) or isinstance(external_id, bool)
+            or str(external_id) == '' or not job_url or posted > now):
         return None
     description = clean(job.get('description'))
-    location = clean(job.get('candidate_required_location') or job.get('location'))
-    tags = job.get('tags') if isinstance(job.get('tags'), list) else []
-    context = ' '.join([title, description, *map(str, tags)])
-    arrangement = ('Remote' if source == 'remotive' or job.get('remote') is True else
-                   'Hybrid' if re.search('hybrid', location + ' ' + title, re.I) else
-                   'On-site' if job.get('remote') is False else 'Unspecified')
-    country = _COUNTRIES.get(location.lower()) or _COUNTRIES.get(location.split(',')[-1].strip().lower())
-    job_types = job.get('job_types') if isinstance(job.get('job_types'), list) else []
+    location = clean(job.get('location_raw'))
+    skills = job.get('skills') if isinstance(job.get('skills'), list) else []
+    context = ' '.join([title, description, *map(str, skills)])
+    arrangement = job.get('work_arrangement', 'Unspecified')
+    if not isinstance(arrangement, str) or arrangement not in {'Remote', 'Hybrid', 'On-site', 'Unspecified'}:
+        return None
+    country = clean(job.get('country')).upper()
+    country = country if re.fullmatch('[A-Z]{2}', country) else None
     return dict(
         external_id=str(external_id),
         fingerprint=hashlib.sha256((source + '::' + str(external_id)).encode()).hexdigest(),
         title=title, normalized_role=classify(title), company_name=company,
-        company_logo_url=job.get('company_logo') if http_url(job.get('company_logo')) else None,
+        company_logo_url=http_url(job.get('company_logo_url')),
         location_raw=location or None, country=country, work_arrangement=arrangement,
-        employment_type=clean(job.get('job_type') or ', '.join(map(str, job_types))) or 'Unspecified',
+        employment_type=clean(job.get('employment_type')) or 'Unspecified',
         seniority_level=seniority(title), **parse_salary(job.get('salary'), rates),
-        skills=skills_from(context), description_snippet=description[:700], job_url=job['url'],
+        skills=skills_from(context), description_snippet=description[:700], job_url=job_url,
         source=source, posted_at=posted.isoformat(), scraped_at=now.isoformat(), is_active=True,
     )

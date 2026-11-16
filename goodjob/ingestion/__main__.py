@@ -6,10 +6,14 @@ import json
 import sys
 from pathlib import Path
 
-from ingestion.runner import IngestionRunner
+from ingestion.runner import IngestionRunner, sources_configured
 
 
 async def execute(args) -> int:
+    if not sources_configured():
+        print('Ingestion is not configured: no sources have been selected. '
+              'Choose and implement an authorized source before collecting.', file=sys.stderr)
+        return 2
     from app.config import get_settings
 
     settings = get_settings()
@@ -28,7 +32,7 @@ async def execute(args) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='Collect job feeds using Python, preserve originals, and publish listings.')
+    parser = argparse.ArgumentParser(description='Run configured Python ingestion, preserving originals before publishing. Sources are not selected.')
     parser.add_argument('--replay', type=Path, metavar='BATCH_DIRECTORY',
                         help='process a saved manifest and response files without fetching sources again')
     parser.add_argument('--landing-dir', type=Path, help='override the local raw-response landing directory')

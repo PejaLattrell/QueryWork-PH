@@ -20,7 +20,7 @@ class Diagram:
         self.draw = ImageDraw.Draw(self.image)
         self.svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" role="img" aria-labelledby="title desc">',
                     '<title id="title">QueryWork PH: Python ingestion architecture</title>',
-                    '<desc id="desc">Current local Python collector, durable response files, Supabase and FastAPI dashboard. Planned Databricks managed volume, Bronze, Silver, Gold and validated snapshot publication.</desc>',
+                    '<desc id="desc">Reusable Python ingestion framework with no data sources selected. Collection and replay are disabled. Supabase supports the sample dashboard. Databricks managed volume, Bronze, Silver, Gold and validated snapshot publication remain planned.</desc>',
                     '<rect width="1600" height="1080" fill="white"/>']
 
     def font(self, size, bold):
@@ -78,18 +78,18 @@ def main():
     d=Diagram()
     d.text(60,42,'QUERYWORK PH',17,color='#177c70',bold=True)
     d.text(60,90,'Python ingestion architecture',36,bold=True)
-    d.text(60,130,'Current local pipeline and planned lakehouse path',20,color=MUTED)
+    d.text(60,130,'Reusable local framework and planned lakehouse path; data sources remain undecided',20,color=MUTED)
     d.rect(40,170,1520,390,'#f1f8f7',outline='#b6d7d0',radius=22)
-    d.text(60,198,'CURRENT IMPLEMENTATION',17,color='#177c70',bold=True)
-    d.card(60,236,260,'Job feeds',['Remotive + Arbeitnow','Bounded API requests'])
-    d.card(370,236,340,'Python ingestion',['CLI or dashboard trigger','Fetch / normalize / batch writes'],fill='#e3f3ef',outline='#258b7d')
+    d.text(60,198,'INGESTION FRAMEWORK / SOURCES UNDECIDED',17,color='#177c70',bold=True)
+    d.card(60,236,260,'Sources undecided',['No sites configured','Collection disabled'])
+    d.card(370,236,340,'Python framework',['CLI or dashboard entry point','Archive / normalize / batch writes'],fill='#e3f3ef',outline='#258b7d')
     d.card(780,236,300,'Supabase Postgres',['job_postings + scrape_runs','Prototype serving tables'])
     d.card(1150,236,320,'Local dashboard',['FastAPI + Jinja / HTMX','JSON API + Chart.js'])
     for left,right in ((320,370),(710,780),(1080,1150)):
-        d.arrow([(left,302),(right,302)])
+        d.arrow([(left,302),(right,302)],dashed=left < 1080)
     d.card(370,416,340,'Durable response files',['Original bytes + metadata + hash','Replay from local landing'],height=116,fill='#ffffff',outline='#258b7d')
-    d.arrow([(540,368),(540,416)],color='#258b7d')
-    d.text(60,444,'Run on demand.',19,bold=True)
+    d.arrow([(540,368),(540,416)],dashed=True,color='#258b7d')
+    d.text(60,444,'No source configured.',19,bold=True)
     d.text(60,474,'No automatic schedule enabled.',17,color=MUTED)
     d.text(780,444,'Write key stays server-side.',18,bold=True)
     d.text(780,474,'Dashboard reads use a separate key.',17,color=MUTED)
@@ -107,7 +107,7 @@ def main():
         d.arrow([(x+w,800),(next_x,800)],dashed=True,color='#7e8fb9')
     d.arrow([(540,532),(540,584),(20,584),(20,800),(60,800)],dashed=True,color='#7e8fb9')
     d.text(60,968,'Local availability',19,bold=True)
-    d.text(60,1000,'The collector and dashboard require this PC awake. Local schedules stop while it is off.',18,color=MUTED)
+    d.text(60,1000,'The dashboard and any future local collector require this PC awake. Local schedules stop while it is off.',18,color=MUTED)
     d.text(60,1030,'Hosted schedules and processing remain subject to source permissions, verified free-tier limits, and a proven storage handoff.',17,color=MUTED)
     d.save()
     print('Rendered docs/architecture.svg and docs/architecture.png')

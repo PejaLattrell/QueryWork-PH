@@ -1,12 +1,13 @@
 # Python ingestion with GitHub Actions
 
-Feasibility assessment checked on 9 November 2026. This is a proposed route for the existing Bronze plan; it has not been implemented or enabled.
+Feasibility assessment checked on 9 November 2026; execution plan updated on 16 November 2026 to reuse the Python framework. No job sites or other sources are selected, and the registry in `goodjob/ingestion/` is empty. Collection and replay are disabled before ingestion HTTP or writes. GitHub execution, Databricks upload, Bronze loading, and hosted scheduling remain proposed and have not been enabled.
 
-Python plus GitHub Actions is a good candidate for collecting a small number of authorized job feeds independently of the local PC. Python performs collection, validation, and upload; Actions supplies the schedule and execution environment. The first milestone should be a manual run with verified storage, followed by a schedule after source limits and measured usage are known.
+This source-neutral proposal starts with an explicit source decision and a tested adapter; it selects no provider or endpoint. Only after those gates would Python plus GitHub Actions be a candidate for execution independently of the local PC. Python would perform collection, validation, and upload; Actions would supply the execution environment. First prove a manual run and verified storage, then consider a schedule after source limits, measured usage, and zero-cost billing controls are known.
 
 ```mermaid
 flowchart LR
-    API[Authorized job API] --> PY[Python on GitHub Actions]
+    Select[Source selection undecided] --> Adapter[Explicit adapter implementation]
+    Adapter --> PY[Python on GitHub Actions]
     PY --> RAW[Unchanged response and metadata]
     RAW --> VOL[Databricks managed volume]
     VOL --> LOAD[Databricks Bronze loader]
@@ -43,20 +44,20 @@ The smallest proposed handoff uses Databricks Files API 2.0 to upload and downlo
 
 The volume must already exist. Its identity needs catalog/schema access and volume write permission; read permission is needed for verification. A workspace personal access token is a candidate for the first proof, provided the workspace permits its creation and the required API calls. Store credentials in Actions Secrets, with an expiry and a rotation plan. Free Edition lacks account-console and account-level API access; general workspace API documentation does not by itself prove this account's authentication capabilities. [Volume operations](https://docs.databricks.com/aws/en/volumes/volume-files), [Workspace tokens](https://docs.databricks.com/aws/en/dev-tools/auth/pat), [Actions Secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets)
 
-The runner should connect directly to the source and Databricks. It cannot use the PC's `127.0.0.1` n8n or FastAPI endpoints.
+The hosted runner must connect directly to the source and Databricks. It cannot use the PC's `127.0.0.1` FastAPI endpoint or rely on the local raw archive. A successful local CLI run does not prove that this hosted handoff works.
 
 **Proposed implementation**
 
 | Addition | Responsibility |
 | --- | --- |
-| `ingestion/collect.py` | Fetch one bounded source response, with explicit timeouts and limited transient retries. Save the unchanged body before parsing. |
-| `ingestion/upload.py` | Save body and metadata to the managed volume, verify readback, and write a completion manifest last. |
-| `ingestion/requirements.txt` | Pin only the collector's tested dependencies; avoid installing the dashboard stack. |
-| `ingestion/tests/` | Use saved fixtures and HTTP mocks to check response preservation, rate limits, retries, upload failures, and replay. |
+| Existing `goodjob/ingestion/runner.py` | Source-disabled framework. After explicit adapter implementation, reuse fixture-tested preservation, metadata/checksums, retries, replay, and batch mechanisms. Publication helpers do not imply live ingestion or Bronze loading. |
+| Planned Python volume uploader | Save body and metadata to the managed volume, verify readback, and write a completion manifest last. |
+| Planned collector dependency manifest | Pin only the tested hosted-collection dependencies; avoid unnecessary dashboard dependencies on the runner. |
+| Existing `goodjob/tests/` plus uploader tests | Reuse fixtures and HTTP mocks for preservation, normalization, retries, and replay; add upload failure/readback checks. |
 | `.github/workflows/collect.yml` | Start with manual dispatch, one collection at a time, a bounded timeout, and read-only repository permissions. Add the schedule after proof. |
 | `databricks/01_bronze_ingestion/` | Read completed batches into Bronze and maintain collection history using the existing Bronze plan. |
 
-These are proposed paths; no collector or workflow has been added. Existing `httpx` and HTTP-mock testing patterns can be reused from the application. The existing n8n normalization code belongs after raw preservation and should not replace the Bronze contract.
+Only the source-disabled Python framework and isolated fixture tests currently exist. A source adapter, uploader, hosted dependency manifest, Actions workflow, and Databricks loader remain proposed. Existing `httpx` and HTTP-mock patterns can be reused. Generic normalization belongs after raw preservation and must not replace the Bronze contract. Keep the eventual collector independent of its execution environment instead of maintaining a second source-fetch implementation.
 
 Each batch should include its collection ID, source, sanitized request details, retrieval time, response status/content type, checksum, and validation outcome. Keep source publication times distinct from collection time. A completed upload must not be recorded as a completed Bronze load.
 
@@ -64,11 +65,11 @@ Retries within an execution should reuse the saved body. Re-running processing s
 
 Temporary network failures and rate limits should receive bounded retries that respect `Retry-After`. Invalid credentials and invalid requests need a clear failure result. Keep the last successful dashboard snapshot visible with its actual refresh time. A failed collection remains a failure in operational history; it should not be marked successful merely to keep Actions green.
 
-The app's current **Run Scraper Now** button is wired to n8n. Initially, use GitHub's manual-run interface. Supporting dispatch from FastAPI would be a separate server-side integration; scheduling alone does not rewire that button.
+The current dashboard collection action reports `not_configured` because no sources are selected; no Python writer task is started. It does not dispatch to GitHub. After explicit source/adapter implementation, a hosted proof would use GitHub's manual-run interface. Remote dispatch from FastAPI would require a separate server-side integration. Any future local/hosted publication needs a shared coordination rule.
 
 **Proof before scheduling**
 
-1. Confirm repository visibility, default branch, Actions policy, and account billing controls. The remote is `PejaLattrell/QueryWork-PH`, but visibility and billing were not verified in this assessment.
+1. Explicitly decide a permitted source and implement/test its adapter. No source is selected by this document. Then confirm repository visibility, default branch, Actions policy, and account billing controls. The remote is `PejaLattrell/QueryWork-PH`, but visibility and billing were not verified in this assessment.
 2. Confirm Databricks Free Edition, a target managed volume, and unattended workspace authentication.
 3. Upload a tiny harmless fixture from an external client, download it, and verify its hash. Repeat the save without replacing a different file.
 4. Read the fixture from a Databricks notebook and prove the Bronze write can be replayed safely.
@@ -76,4 +77,4 @@ The app's current **Run Scraper Now** button is wired to n8n. Initially, use Git
 6. Run the same route manually on GitHub. Prove that raw files and history survive the runner ending, and that a failed upload is visible and recoverable.
 7. Enable a conservative schedule, inspect the first scheduled completion, and document how to retry and pause it.
 
-No source collection, account changes, secret changes, workflow publication, or GitHub schedule was performed during this assessment. The open gates are source approval, repository/account settings, and a verified Databricks authentication/upload/Bronze path.
+No source collection, account/secret changes, workflow publication, or GitHub schedule was performed during the feasibility assessment. The local Python implementation adds no hosted schedule. Open gates remain source approval, repository/account settings, and a verified Databricks authentication/upload/Bronze path.

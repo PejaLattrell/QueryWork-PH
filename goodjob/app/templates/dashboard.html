@@ -7,7 +7,7 @@
     {% if token_required %}<label class="text-[10px] muted">Scraper access token <input id="scrape-token" type="password" autocomplete="off" class="field mt-1" aria-label="Scraper access token"></label>{% endif %}
   </div>
 </section>
-<div id="scrape-feedback" role="status" aria-live="polite" hx-get="/api/v1/scrape/status" hx-trigger="every 5s" hx-swap="innerHTML" class="text-xs text-emerald-300 mb-3"></div>
+<div id="scrape-feedback" role="status" aria-live="polite" hx-get="/api/v1/scrape/status" hx-trigger="load, every 5s" hx-swap="innerHTML" class="text-xs text-emerald-300 mb-3">Checking collection status...</div>
 <div id="request-error" role="alert" class="hidden text-xs text-amber-200 border border-amber-500/30 bg-amber-400/5 rounded-lg p-3 mb-4"></div>
 <form id="filters" class="panel p-4 mb-6 grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-[110px_1.2fr_130px_1fr_1.5fr] gap-3"
   hx-get="/partials/dashboard" hx-target="#dashboard-content" hx-swap="innerHTML" hx-trigger="change, input changed delay:450ms from:input, every 60s" hx-sync="this:replace" hx-indicator="#filter-loading">

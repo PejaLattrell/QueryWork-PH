@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import math
 import os
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -16,11 +17,17 @@ import httpx
 from ingestion.normalize import normalize_job
 
 
-SOURCES = {
-    'remotive': ('https://remotive.com/api/remote-jobs?category=software-dev&limit=50', 'jobs'),
-    'arbeitnow': ('https://www.arbeitnow.com/api/job-board-api', 'data'),
-}
+# Sources remain unselected. Adding an adapter requires a separate explicit choice.
+SOURCES: dict[str, tuple[str, str]] = {}
 TRANSIENT_STATUSES = {408, 425, 429, 500, 502, 503, 504}
+
+
+class SourcesNotConfigured(ValueError):
+    """Collection is disabled until an authorized source is selected and implemented."""
+
+
+def sources_configured() -> bool:
+    return bool(SOURCES)
 
 
 def utc_now() -> str:
@@ -63,17 +70,19 @@ class RunResult:
 
 class IngestionRunner:
     def __init__(self, supabase_url: str, write_key: str, fx_rates: dict | None = None,
-                 landing_dir: Path | str = 'data/landing', *, source_transport=None,
-                 database_transport=None, sleep=asyncio.sleep):
+                 landing_dir: Path | str = '.local/ingestion', *, source_transport=None,
+                 database_transport=None, sleep=asyncio.sleep, sources: dict[str, tuple[str, str]] | None = None):
         if not write_key:
             raise ValueError('A server-side Supabase write key is required for ingestion.')
         self.fx_rates = fx_rates or {}
+        self.sources = dict(SOURCES if sources is None else sources)
+        self.sources_configured = bool(self.sources)
         self.landing_dir = Path(landing_dir).resolve()
         self.sleep = sleep
         self.lock = asyncio.Lock()
         self.source_client = httpx.AsyncClient(
             headers={'User-Agent': 'GoodJob/1.0 (public job market analytics)'},
-            timeout=30, follow_redirects=True, transport=source_transport)
+            timeout=30, follow_redirects=False, transport=source_transport)
         headers = {'apikey': write_key, 'Prefer': 'return=minimal'}
         if write_key.startswith('eyJ'):
             headers['Authorization'] = 'Bearer ' + write_key
@@ -91,7 +100,10 @@ class IngestionRunner:
         value = response.headers.get('Retry-After') if response is not None else None
         if value:
             try:
-                delay = max(0, float(value))
+                parsed = float(value)
+                if not math.isfinite(parsed):
+                    return None
+                delay = max(0, parsed)
             except ValueError:
                 try:
                     delay = max(0, (parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds())
@@ -139,10 +151,12 @@ class IngestionRunner:
         return metadata
 
     async def _fetch(self, batch: Path, source: str) -> tuple[dict | None, str | None]:
+        if source not in self.sources:
+            raise ValueError('Unsupported feed source.')
         for attempt in range(3):
             response = None
             try:
-                response = await self.source_client.get(SOURCES[source][0])
+                response = await self.source_client.get(self.sources[source][0])
                 metadata = self._save_response(batch, source, attempt, response)
                 if response.is_success:
                     return metadata, None
@@ -162,9 +176,12 @@ class IngestionRunner:
     def _load_jobs(self, batch: Path, manifest: dict, result: RunResult) -> list[dict]:
         jobs = {}
         for metadata in manifest['responses']:
-            source = metadata.get('source')
+            source = None
             try:
-                if source not in SOURCES:
+                if not isinstance(metadata, dict):
+                    raise ValueError('invalid response metadata')
+                source = metadata.get('source')
+                if source not in self.sources:
                     raise ValueError('unknown source')
                 path = (batch / metadata['raw_file']).resolve()
                 if path.parent != batch.resolve():
@@ -173,7 +190,7 @@ class IngestionRunner:
                 if hashlib.sha256(body).hexdigest() != metadata['sha256']:
                     raise ValueError('checksum mismatch')
                 document = json.loads(body)
-                rows = document.get(SOURCES[source][1]) if isinstance(document, dict) else None
+                rows = document.get(self.sources[source][1]) if isinstance(document, dict) else None
                 if not isinstance(rows, list):
                     raise ValueError('expected a job list')
                 observed = datetime.fromisoformat(metadata['received_at'])
@@ -197,13 +214,13 @@ class IngestionRunner:
         try:
             await self._database_request('POST', 'scrape_runs', params={'on_conflict': 'id'},
                                          headers={'Prefer': 'resolution=merge-duplicates,return=minimal'},
-                                         json={'id': result.run_id, 'source': '+'.join(SOURCES),
+                                         json={'id': result.run_id, 'source': '+'.join(self.sources),
                                                'status': 'running', 'started_at': manifest['started_at'],
                                                'completed_at': None, 'jobs_found': 0, 'jobs_upserted': 0,
                                                'error_message': None})
             started = True
             if collect:
-                for source in SOURCES:
+                for source in self.sources:
                     metadata, error = await self._fetch(batch, source)
                     if metadata is not None:
                         manifest['responses'].append(metadata)
@@ -246,6 +263,8 @@ class IngestionRunner:
         return result
 
     async def run(self) -> RunResult:
+        if not self.sources_configured:
+            raise SourcesNotConfigured('No ingestion sources are configured. Choose and implement an authorized source before collecting.')
         async with self.lock:
             run_id = str(uuid.uuid4())
             batch = self.landing_dir / run_id
@@ -256,10 +275,20 @@ class IngestionRunner:
 
     async def replay(self, batch_dir: Path | str) -> RunResult:
         """Reprocess original saved bytes with the original run ID and no feed requests."""
+        if not self.sources_configured:
+            raise SourcesNotConfigured('No ingestion sources are configured. Choose and implement an authorized source before collecting.')
         async with self.lock:
             batch = Path(batch_dir).resolve()
             manifest = json.loads((batch / 'manifest.json').read_text(encoding='utf-8'))
-            uuid.UUID(manifest['run_id'])
-            if manifest.get('version') != 1 or not isinstance(manifest.get('responses'), list):
+            if (not isinstance(manifest, dict) or manifest.get('version') != 1
+                    or not isinstance(manifest.get('run_id'), str)
+                    or not isinstance(manifest.get('started_at'), str)
+                    or not isinstance(manifest.get('responses'), list)
+                    or not isinstance(manifest.get('source_errors'), list)
+                    or not all(isinstance(error, str) for error in manifest['source_errors'])):
                 raise ValueError('This is not a supported ingestion batch manifest.')
+            uuid.UUID(manifest['run_id'])
+            if any(not isinstance(metadata, dict) or metadata.get('source') not in self.sources
+                   for metadata in manifest['responses']):
+                raise ValueError('Saved batch contains an unsupported source.')
             return await self._process(batch, manifest, collect=False)
